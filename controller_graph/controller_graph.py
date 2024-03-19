@@ -44,11 +44,11 @@ import networkx as nx
 
 # Local Imports
 from orchestra_config.orchestra_config import *     # KEEP THIS LINE, DO NOT REMOVE
-from maaf_allocation_node.node_config import *
-from maaf_allocation_node.tools import *
+from orchestra_config.sim_config import *
+from maaf_tools.tools import *
 from maaf_msgs.msg import TeamCommStamped, Bid, Allocation
-from maaf_allocation_node.fleet_dataclasses import Agent, Fleet
-from maaf_allocation_node.task_dataclasses import Task, Task_log
+from maaf_tools.datastructures.fleet_dataclasses import Agent, Fleet
+from maaf_tools.datastructures.task_dataclasses import Task, Task_log
 
 ##################################################################################################################
 

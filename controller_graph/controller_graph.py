@@ -45,10 +45,16 @@ import networkx as nx
 # Local Imports
 from orchestra_config.orchestra_config import *     # KEEP THIS LINE, DO NOT REMOVE
 from orchestra_config.sim_config import *
-from maaf_tools.tools import *
 from maaf_msgs.msg import TeamCommStamped, Bid, Allocation
-from maaf_tools.datastructures.fleet_dataclasses import Agent, Fleet
-from maaf_tools.datastructures.task_dataclasses import Task, Task_log
+
+from maaf_tools.datastructures.task.Task import Task
+from maaf_tools.datastructures.task.TaskLog import TaskLog
+
+from maaf_tools.datastructures.agent.Agent import Agent
+from maaf_tools.datastructures.agent.Fleet import Fleet
+from maaf_tools.datastructures.agent.AgentState import AgentState
+
+from maaf_tools.tools import *
 
 ##################################################################################################################
 
@@ -160,6 +166,9 @@ class Controller_graph(Node):
 
         msg_memo = loads(msg.memo)
 
+        # -> Construct source agent
+        source_agent = Agent.from_dict(msg_memo["agent"])
+
         # -> If the agent is not in the fleet, add it
         if msg.source not in self.fleet.ids:
             # -> Create pos publisher
@@ -175,17 +184,23 @@ class Controller_graph(Node):
                 qos_profile=qos_pose
             )
 
-            self.fleet.add_agent(agent=msg_memo["agent"])
+            self.fleet.add_agent(agent=source_agent)
 
         # -> Update the agent state
+        self.fleet[msg.source].plan = source_agent.plan
+
         if msg.meta_action == "assign":
-            self.fleet[msg.source].local["goal"] = msg_memo["task"]
+            # -> Construct goal task
+            goal_task = Task.from_dict(msg_memo["task"])
+            self.fleet[msg.source].local["goal"] = goal_task
 
         elif msg.meta_action == "unassign":
             self.fleet[msg.source].local["goal"] = None
+            self.fleet[msg.source].plan = None
 
         else:
             self.fleet[msg.source].local["goal"] = None
+            self.fleet[msg.source].plan = None
 
     def sim_epoch_callback(self, msg: TeamCommStamped):
         """
@@ -198,21 +213,20 @@ class Controller_graph(Node):
         # ... for all agents
         for agent in self.fleet:
             if agent.local["goal"] is not None:
-
                 try:
                     # -> Get next pose in path
-                    agent.local["goal"]["shared"]["path"]["x"].pop(0)
-                    agent.local["goal"]["shared"]["path"]["y"].pop(0)
+                    agent.plan.path.pop(0)
+                    new_state = agent.plan.path[0]
 
                     # -> Update agent state
-                    agent.state.x = agent.local["goal"]["shared"]["path"]["x"][0]
-                    agent.state.y = agent.local["goal"]["shared"]["path"]["y"][0]
+                    agent.state.x = new_state[0]
+                    agent.state.y = new_state[1]
 
                 except:
                     # -> Edit the task termination
-                    agent.local["goal"]["termination_timestamp"] = self.current_timestamp
-                    agent.local["goal"]["termination_source_id"] = agent.id
-                    agent.local["goal"]["status"] = "completed"
+                    agent.local["goal"].termination_timestamp = self.current_timestamp
+                    agent.local["goal"].termination_source_id = agent.id
+                    agent.local["goal"].status = "completed"
 
                     # -> Send completion message
                     task = TeamCommStamped()
@@ -220,7 +234,7 @@ class Controller_graph(Node):
                     task.source = "controller_graph"
                     task.target = agent.id
                     task.meta_action = "completed"
-                    task.memo = dumps(agent.local["goal"])
+                    task.memo = dumps(agent.local["goal"].asdict())
 
                     self.sim_events_instructions_pub.publish(task)
 

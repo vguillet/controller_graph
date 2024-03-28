@@ -185,22 +185,17 @@ class Controller_graph(Node):
             )
 
             self.fleet.add_agent(agent=source_agent)
+            self.fleet[msg.source].local["tasks"] = {}
 
-        # -> Update the agent state
-        self.fleet[msg.source].plan = source_agent.plan
+        if msg.meta_action == "update":
+            self.fleet[msg.source].plan = source_agent.plan
+            self.fleet[msg.source].local["tasks"] = {}
 
-        if msg.meta_action == "assign":
-            # -> Construct goal task
-            goal_task = Task.from_dict(msg_memo["task"])
-            self.fleet[msg.source].local["goal"] = goal_task
+            for task_id, task_dict in msg_memo["tasks"].items():
+                self.fleet[msg.source].local["tasks"][task_id] = Task.from_dict(task_dict)
 
-        elif msg.meta_action == "unassign":
-            self.fleet[msg.source].local["goal"] = None
-            self.fleet[msg.source].plan = None
-
-        else:
-            self.fleet[msg.source].local["goal"] = None
-            self.fleet[msg.source].plan = None
+            self.get_logger().info(f"Agent {msg.source} updated its plan")
+            self.get_logger().info(f"{pformat(self.fleet[msg.source].plan.path)}")
 
     def sim_epoch_callback(self, msg: TeamCommStamped):
         """
@@ -208,38 +203,44 @@ class Controller_graph(Node):
         """
 
         # -> Load the message
-        msg = loads(msg.memo)
+        memo = loads(msg.memo)
 
         # ... for all agents
         for agent in self.fleet:
-            if agent.local["goal"] is not None:
-                try:
+            if agent.plan.task_bundle:
+                current_task_id = agent.plan.task_bundle[0]
+
+                if len(agent.plan.paths[current_task_id]["path"]) > 1:
                     # -> Get next pose in path
-                    agent.plan.path.pop(0)
-                    new_state = agent.plan.path[0]
+                    new_state = agent.plan.paths[current_task_id]["path"][0]
 
                     # -> Update agent state
                     agent.state.x = new_state[0]
                     agent.state.y = new_state[1]
 
-                except:
+                    self.get_logger().info(f"Epoch {memo['epoch']}: Agent {agent.id} moved to {new_state}")
+                    agent.plan.paths[current_task_id]["path"].pop(0)
+                else:
+                    task = agent.local["tasks"][current_task_id]
+
                     # -> Edit the task termination
-                    agent.local["goal"].termination_timestamp = self.current_timestamp
-                    agent.local["goal"].termination_source_id = agent.id
-                    agent.local["goal"].status = "completed"
+                    task.termination_timestamp = self.current_timestamp
+                    task.termination_source_id = agent.id
+                    task.status = "completed"
 
                     # -> Send completion message
-                    task = TeamCommStamped()
+                    msg = TeamCommStamped()
 
-                    task.source = "controller_graph"
-                    task.target = agent.id
-                    task.meta_action = "completed"
-                    task.memo = dumps(agent.local["goal"].asdict())
+                    msg.source = "controller_graph"
+                    msg.target = agent.id
+                    msg.meta_action = "completed"
+                    msg.memo = dumps(task.asdict())
 
-                    self.sim_events_instructions_pub.publish(task)
+                    self.sim_events_instructions_pub.publish(msg)
 
-                    # -> Remove the goal from the agent
-                    agent.local["goal"] = None
+                    # -> Remove the task from the plan
+                    self.fleet[agent.id].plan.remove_task(current_task_id)
+                    del self.fleet[agent.id].local["tasks"][current_task_id]
 
         self.pose_publisher_timer_callback()
 

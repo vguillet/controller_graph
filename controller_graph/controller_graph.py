@@ -171,12 +171,12 @@ class Controller_graph(Node):
 
         # -> If the agent is not in the fleet, add it
         if msg.source not in self.fleet.ids:
-            # -> Create pos publisher
-            qos_pose = QoSProfile(
-                reliability=QoSReliabilityPolicy.BEST_EFFORT,
-                history=QoSHistoryPolicy.KEEP_LAST,
-                depth=1
-            )
+            # # -> Create pos publisher
+            # qos_pose = QoSProfile(
+            #     reliability=QoSReliabilityPolicy.BEST_EFFORT,
+            #     history=QoSHistoryPolicy.KEEP_LAST,
+            #     depth=1
+            # )
 
             self.robot_pose_pub[msg.source] = self.create_publisher(
                 msg_type=PoseStamped,
@@ -194,8 +194,8 @@ class Controller_graph(Node):
             for task_id, task_dict in msg_memo["tasks"].items():
                 self.fleet[msg.source].local["tasks"][task_id] = Task.from_dict(task_dict)
 
-            self.get_logger().info(f"Agent {msg.source} updated its plan")
-            self.get_logger().info(f"{pformat(self.fleet[msg.source].plan.path)}")
+            # self.get_logger().info(f"Agent {msg.source} updated its plan")
+            # self.get_logger().info(f"{pformat(self.fleet[msg.source].plan.path)}")
 
     def sim_epoch_callback(self, msg: TeamCommStamped):
         """
@@ -212,6 +212,7 @@ class Controller_graph(Node):
 
                 if len(agent.plan.paths[current_task_id]["path"]) > 1:
                     # -> Get next pose in path
+                    agent.plan.paths[current_task_id]["path"].pop(0)
                     new_state = agent.plan.paths[current_task_id]["path"][0]
 
                     # -> Update agent state
@@ -219,7 +220,6 @@ class Controller_graph(Node):
                     agent.state.y = new_state[1]
 
                     self.get_logger().info(f"Epoch {memo['epoch']}: Agent {agent.id} moved to {new_state}")
-                    agent.plan.paths[current_task_id]["path"].pop(0)
                 else:
                     task = agent.local["tasks"][current_task_id]
 
@@ -237,6 +237,8 @@ class Controller_graph(Node):
                     msg.memo = dumps(task.asdict())
 
                     self.sim_events_instructions_pub.publish(msg)
+
+                    self.get_logger().info(f"Epoch {memo['epoch']}: Agent {agent.id} completed task {current_task_id} at {agent.state.x, agent.state.y}")
 
                     # -> Remove the task from the plan
                     self.fleet[agent.id].plan.remove_task(current_task_id)

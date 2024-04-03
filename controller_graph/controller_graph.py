@@ -152,6 +152,9 @@ class Controller_graph(Node):
 
         return allocations
 
+    def agent_pos(self, agent_id: str) -> list:
+        return [self.fleet[agent_id].state.x, self.fleet[agent_id].state.y]
+
     def env_callback(self, msg: TeamCommStamped):
         data = loads(msg.memo)
         self.env = {
@@ -171,13 +174,6 @@ class Controller_graph(Node):
 
         # -> If the agent is not in the fleet, add it
         if msg.source not in self.fleet.ids:
-            # # -> Create pos publisher
-            # qos_pose = QoSProfile(
-            #     reliability=QoSReliabilityPolicy.BEST_EFFORT,
-            #     history=QoSHistoryPolicy.KEEP_LAST,
-            #     depth=1
-            # )
-
             self.robot_pose_pub[msg.source] = self.create_publisher(
                 msg_type=PoseStamped,
                 topic=f"/{msg.source}{topic_pose}",
@@ -188,14 +184,17 @@ class Controller_graph(Node):
             self.fleet[msg.source].local["tasks"] = {}
 
         if msg.meta_action == "update":
+            # # -> Verify start of new plan is the same as the current agent pose
+            # if "traceback" in msg_memo["kwargs"].keys():
+            #     self.get_logger().info(f"{msg_memo['kwargs']['traceback']} - Agent {msg.source} at {self.agent_pos(msg.source)} updating its plan: {source_agent.plan.path}")
+            # else:
+            #     self.get_logger().info(f"??? - Agent {msg.source} at {self.agent_pos(msg.source)} updating its plan: {source_agent.plan.path}")
+
             self.fleet[msg.source].plan = source_agent.plan
             self.fleet[msg.source].local["tasks"] = {}
 
             for task_id, task_dict in msg_memo["tasks"].items():
                 self.fleet[msg.source].local["tasks"][task_id] = Task.from_dict(task_dict)
-
-            # self.get_logger().info(f"Agent {msg.source} updated its plan")
-            # self.get_logger().info(f"{pformat(self.fleet[msg.source].plan.path)}")
 
     def sim_epoch_callback(self, msg: TeamCommStamped):
         """
@@ -211,6 +210,9 @@ class Controller_graph(Node):
                 current_task_id = agent.plan.task_bundle[0]
 
                 if len(agent.plan.paths[current_task_id]["path"]) > 1:
+                    # self.get_logger().info(f"Agent {agent.id} at {agent.state.x, agent.state.y} ({agent.plan.paths[current_task_id]['path']})")
+                    assert agent.plan.paths[current_task_id]["path"][0] == self.agent_pos(agent.id) # -> Check if agent is at the start of the path
+
                     # -> Get next pose in path
                     agent.plan.paths[current_task_id]["path"].pop(0)
                     new_state = agent.plan.paths[current_task_id]["path"][0]
@@ -238,7 +240,7 @@ class Controller_graph(Node):
 
                     self.sim_events_instructions_pub.publish(msg)
 
-                    self.get_logger().info(f"Epoch {memo['epoch']}: Agent {agent.id} completed task {current_task_id} at {agent.state.x, agent.state.y}")
+                    self.get_logger().info(f"Epoch {memo['epoch']}: Agent {agent.id} completed task {current_task_id} at {self.agent_pos(agent.id)}")
 
                     # -> Remove the task from the plan
                     self.fleet[agent.id].plan.remove_task(current_task_id)

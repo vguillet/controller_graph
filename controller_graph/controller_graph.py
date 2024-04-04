@@ -172,6 +172,12 @@ class Controller_graph(Node):
         # -> Construct source agent
         source_agent = Agent.from_dict(msg_memo["agent"])
 
+        # -> Set paths property manually
+        if "paths" in msg_memo["agent"]["plan"].keys():
+            source_agent.plan.paths = msg_memo["agent"]["plan"]["paths"]
+        else:
+            source_agent.plan.paths = None
+
         # -> If the agent is not in the fleet, add it
         if msg.source not in self.fleet.ids:
             self.robot_pose_pub[msg.source] = self.create_publisher(
@@ -206,8 +212,8 @@ class Controller_graph(Node):
 
         # ... for all agents
         for agent in self.fleet:
-            if agent.plan.task_bundle:
-                current_task_id = agent.plan.task_bundle[0]
+            if agent.plan.task_sequence:
+                current_task_id = agent.plan.task_sequence[0]
 
                 if len(agent.plan.paths[current_task_id]["path"]) > 1:
                     # self.get_logger().info(f"Agent {agent.id} at {agent.state.x, agent.state.y} ({agent.plan.paths[current_task_id]['path']})")

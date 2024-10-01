@@ -193,7 +193,7 @@ class Controller_graph(Node):
             # else:
             #     self.get_logger().info(f"??? - Agent {msg.source} at {self.agent_pos(msg.source)} updating its plan: {source_agent.plan.path}")
 
-            self.get_logger().info(f"{msg.source}: {source_agent.plan}")
+            # self.get_logger().info(f"{msg.source}: {source_agent.plan}")
 
             self.fleet[msg.source].plan = source_agent.plan
             self.fleet[msg.source].local["tasks"] = {}
@@ -216,7 +216,7 @@ class Controller_graph(Node):
             if agent.plan.task_sequence:
                 current_task_id = agent.plan.task_sequence[0]
 
-                self.get_logger().info(f"Agent {agent.id} at {agent.state.pos} - Task {current_task_id} at {agent.plan.paths[current_task_id]['path']}")
+                # self.get_logger().info(f"Agent {agent.id} at {agent.state.pos} - Task {current_task_id} at {agent.plan.paths[current_task_id]['path']}")
 
                 if len(agent.plan.paths[current_task_id]["path"]) > 1:
                     # self.get_logger().info(f"Agent {agent.id} at {agent.state.x, agent.state.y} ({agent.plan.paths[current_task_id]['path']})")

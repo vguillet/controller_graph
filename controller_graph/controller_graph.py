@@ -1,21 +1,9 @@
 
 ##################################################################################################################
-
 """
-Parent class for the CAF framework. To use, the following must be defined in the child class:
-MAF:
-    Optional:
-    - on_set_state
-
-CAF:
-    - message_to_publish(self) (property)
-    - process_msg(self, msg)
-    - next_state(self) (property)
-    # - action_to_take(self) (property)
-    # - process_step(self, obs, reward, done, infos)
-
-    Optional:
-    - on_new_task(self, task_id, task_data)
+Executive layer simulant.
+> Simulates the movement of robots in the environment.
+> Simulate the generation of completion signals for tasks.
 """
 
 # Built-in/Generic Imports
@@ -29,6 +17,7 @@ import pandas as pd
 from json import dumps, loads
 from pprint import pprint, pformat
 import sys
+from copy import deepcopy
 
 # Libs
 # ROS2 Imports
@@ -209,7 +198,10 @@ class Controller_graph(Node):
         # -> Load the message
         memo = loads(msg.memo)
 
-        self.get_logger().info(f"------------------- Epoch {memo['epoch']}")
+        msg_backlog = []
+
+        move_logs = "States logs:"
+        task_completed_logs = "Tasks completion log"
 
         # ... for all agents
         for agent in self.fleet:
@@ -232,7 +224,8 @@ class Controller_graph(Node):
                     agent.state.x = new_state[0]
                     agent.state.y = new_state[1]
 
-                    self.get_logger().info(f"{agent.id} > moved to {new_state}")
+                    move_logs += f"\n{agent.id} > moved to {new_state}"
+
                 else:
                     task = agent.local["tasks"][current_task_id]
 
@@ -249,15 +242,25 @@ class Controller_graph(Node):
                     msg.meta_action = "completed"
                     msg.memo = dumps(task.asdict())
 
-                    self.sim_events_instructions_pub.publish(msg)
+                    # self.sim_events_instructions_pub.publish(msg)
+                    msg_backlog.append(deepcopy(msg))
 
-                    self.get_logger().info(f"{agent.id} v Task {current_task_id} at {agent.state.pos} completed")
+                    task_completed_logs += f"\n{agent.id} v Task {current_task_id} at {agent.state.pos} completed"
 
                     # -> Remove the task from the plan
                     del self.fleet[agent.id].local["tasks"][current_task_id]
                     self.fleet[agent.id].plan.remove_task(current_task_id)
 
+        # -> Print logs
+        self.get_logger().info(move_logs)
+        # self.get_logger().info(task_completed_logs)
+
+        # -> Publish new poses
         self.pose_publisher_timer_callback()
+
+        # -> Publish completion msgs
+        for msg in msg_backlog:
+            self.sim_events_instructions_pub.publish(msg)
 
     def pose_publisher_timer_callback(self):
         """

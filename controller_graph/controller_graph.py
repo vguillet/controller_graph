@@ -14,7 +14,6 @@ from datetime import datetime, timedelta
 from random import randint
 import numpy as np
 import pandas as pd
-from json import dumps, loads
 from pprint import pprint, pformat
 import sys
 from copy import deepcopy
@@ -32,18 +31,34 @@ from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 import networkx as nx
 
 # Local Imports
-from orchestra_config.orchestra_config import *     # KEEP THIS LINE, DO NOT REMOVE
-from orchestra_config.sim_config import *
-from maaf_msgs.msg import TeamCommStamped, Bid, Allocation
+try:
+    from orchestra_config.orchestra_config import *     # KEEP THIS LINE, DO NOT REMOVE
+    from orchestra_config.sim_config import *
+    from maaf_msgs.msg import TeamCommStamped, Bid, Allocation
 
-from maaf_tools.datastructures.task.Task import Task
-from maaf_tools.datastructures.task.TaskLog import TaskLog
+    from maaf_tools.datastructures.task.Task import Task
+    from maaf_tools.datastructures.task.TaskLog import TaskLog
 
-from maaf_tools.datastructures.agent.Agent import Agent
-from maaf_tools.datastructures.agent.Fleet import Fleet
-from maaf_tools.datastructures.agent.AgentState import AgentState
+    from maaf_tools.datastructures.agent.Agent import Agent
+    from maaf_tools.datastructures.agent.Fleet import Fleet
+    from maaf_tools.datastructures.agent.AgentState import AgentState
 
-from maaf_tools.tools import *
+    from maaf_tools.tools import *
+
+except ImportError:
+    from orchestra_config.orchestra_config.orchestra_config import *  # KEEP THIS LINE, DO NOT REMOVE
+    from orchestra_config.orchestra_config.sim_config import *
+    from maaf_msgs.msg import TeamCommStamped, Bid, Allocation
+
+    from maaf_tools.maaf_tools.datastructures.task.Task import Task
+    from maaf_tools.maaf_tools.datastructures.task.TaskLog import TaskLog
+
+    from maaf_tools.maaf_tools.datastructures.agent.Agent import Agent
+    from maaf_tools.maaf_tools.datastructures.agent.Fleet import Fleet
+    from maaf_tools.maaf_tools.datastructures.agent.AgentState import AgentState
+
+    from maaf_tools.maaf_tools.tools import *
+
 
 ##################################################################################################################
 
